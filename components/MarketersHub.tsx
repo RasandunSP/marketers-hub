@@ -1,15 +1,32 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { CategoryFilter } from "@/components/CategoryFilter";
 import { Header } from "@/components/Header";
 import { HeroBanner } from "@/components/HeroBanner";
-import { ResourceCard } from "@/components/ResourceCard";
-import { RESOURCES } from "@/lib/resources";
+import { ResourceGrid } from "@/components/ResourceGrid";
+import { useResources } from "@/hooks/useResources";
+import { getCategoriesFromResources } from "@/lib/sheet";
+import { matchesResourceSearch } from "@/lib/search-resources";
 
 export function MarketersHub() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const { resources, loading, error, refresh } = useResources();
+
+  const categories = useMemo(
+    () => getCategoriesFromResources(resources),
+    [resources],
+  );
+
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const r of resources) {
+      counts[r.category] = (counts[r.category] ?? 0) + 1;
+    }
+    return counts;
+  }, [resources]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -23,39 +40,59 @@ export function MarketersHub() {
   }, []);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return RESOURCES.filter((r) => {
+    return resources.filter((r) => {
       const matchesCategory = !category || r.category === category;
-      const matchesQuery =
-        !q ||
-        r.title.toLowerCase().includes(q) ||
-        r.subtitle.toLowerCase().includes(q) ||
-        r.url.toLowerCase().includes(q);
-      return matchesCategory && matchesQuery;
+      return matchesCategory && matchesResourceSearch(r, query);
     });
-  }, [query, category]);
+  }, [query, category, resources]);
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="hub-app min-h-screen bg-[#f7f7f7]">
       <Header
         query={query}
         onQueryChange={setQuery}
         searchRef={searchRef}
       />
-      <HeroBanner activeCategory={category} onCategoryChange={setCategory} />
-      <main className="px-6 py-8 md:px-10 md:py-10">
-        <div className="mx-auto flex max-w-7xl flex-col gap-5 lg:flex-row lg:gap-12">
-          <div className="flex w-full flex-col gap-5 lg:max-w-md xl:max-w-lg">
-            {filtered.length > 0 ? (
-              filtered.map((resource) => (
-                <ResourceCard key={resource.id} resource={resource} />
-              ))
-            ) : (
-              <p className="rounded-2xl bg-[#f0f0f0] p-6 text-center text-sm text-[#888]">
-                No resources match your search.
-              </p>
-            )}
-          </div>
+      <HeroBanner />
+      <CategoryFilter
+        categories={categories}
+        activeCategory={category}
+        onCategoryChange={setCategory}
+        counts={categoryCounts}
+        totalCount={resources.length}
+      />
+      <main className="px-5 py-4 md:px-8 md:py-5">
+        <div className="mx-auto w-full max-w-none">
+          {loading && resources.length === 0 ? (
+            <p className="rounded-xl bg-white p-5 text-center text-[13px] text-[#888] shadow-sm">
+              Loading resources…
+            </p>
+          ) : null}
+
+          {error ? (
+            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-[13px] text-amber-900">
+              <p>{error}</p>
+              <button
+                type="button"
+                onClick={() => void refresh()}
+                className="mt-2 font-medium text-[#037EF3] hover:underline"
+              >
+                Try again
+              </button>
+            </div>
+          ) : null}
+
+          {!loading && filtered.length > 0 ? (
+            <ResourceGrid resources={filtered} />
+          ) : null}
+
+          {!loading && !error && filtered.length === 0 ? (
+            <p className="rounded-xl bg-white p-5 text-center text-[13px] text-[#888] shadow-sm">
+              {resources.length === 0
+                ? "No resources published yet. Set both “Confirm Push to Marketers Hub” and “Double Confirm” to TRUE in the sheet."
+                : "No resources match your search or filter."}
+            </p>
+          ) : null}
         </div>
       </main>
     </div>

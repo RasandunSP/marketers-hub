@@ -1,22 +1,49 @@
 export type ResourceAction = "copy" | "external" | "download";
 
-export type ResourcePreview =
-  | { type: "none" }
-  | {
-      type: "bluebook";
-      title: string;
-      subtitle?: string;
-    };
+export type LinkType =
+  | "other"
+  | "aiesec"
+  | "google-drive"
+  | "canva"
+  | "github"
+  | "web"
+  | "facebook"
+  | "flickr"
+  | "instagram"
+  | "linkedin"
+  | "x"
+  | "youtube";
+
+export type ResourceType =
+  | "logo"
+  | "color"
+  | "guideline"
+  | "template"
+  | "photoalbum"
+  | "aftermovie"
+  | "animation"
+  | "other";
+
+export type CardSize = "compact" | "large" | "color";
 
 export type Resource = {
   id: string;
+  resourceType: ResourceType;
+  cardSize: CardSize;
   title: string;
   subtitle: string;
   url: string;
   category: string;
-  primaryAction: ResourceAction;
-  showDownload: boolean;
-  preview: ResourcePreview;
+  linkType: LinkType;
+  copyable: boolean;
+  redirectable: boolean;
+  downloadable: boolean;
+  featured: boolean;
+  iconUrl?: string;
+  iconBackgroundColor?: string;
+  bannerUrl?: string;
+  /** For color resources — hex value to display and copy */
+  hexColor?: string;
 };
 
 export const CATEGORIES = [
@@ -25,31 +52,24 @@ export const CATEGORIES = [
   "GUIDELINES",
   "TEMPLATES",
   "PHOTO ALBUMS",
+  "AFTER MOVIES",
+  "ANIMATIONS",
 ] as const;
 
-export const RESOURCES: Resource[] = [
+export const FALLBACK_RESOURCES: Resource[] = [
   {
     id: "aiesec-logo",
+    resourceType: "logo",
+    cardSize: "compact",
     title: "AIESEC LOGO",
     subtitle: "AIESEC logo and its variations",
-    url: "click.aiesec.lk/mc/nst25262-membership",
+    url: "https://click.aiesec.lk/mc/nst25262-membership",
     category: "LOGOS",
-    primaryAction: "copy",
-    showDownload: true,
-    preview: { type: "none" },
-  },
-  {
-    id: "blue-book",
-    title: "AIESEC Blue Book",
-    subtitle: "Guideline Documents for AIESEC B...",
-    url: "click.aiesec.lk/mc/nst25262-membership",
-    category: "GUIDELINES",
-    primaryAction: "external",
-    showDownload: true,
-    preview: {
-      type: "bluebook",
-      title: "THE BLUE BOOK",
-      subtitle: "AIESEC IN SRI LANKA BRAND GUIDE | 2023",
-    },
+    linkType: "other",
+    copyable: true,
+    redirectable: true,
+    downloadable: true,
+    featured: false,
+    iconUrl: "/Logos/AIESEC-Human-Blue.png",
   },
 ];
