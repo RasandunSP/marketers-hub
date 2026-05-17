@@ -21,7 +21,11 @@ export function LargeResourceCard({
       showFeaturedBadge={!inFeaturedSection}
       banner={
         resource.bannerUrl ? (
-          <BannerImage src={resource.bannerUrl} alt={resource.title} />
+          <BannerImage
+            src={resource.bannerUrl}
+            alt={resource.title}
+            resource={resource}
+          />
         ) : (
           <BannerLinkFallback resource={resource} />
         )

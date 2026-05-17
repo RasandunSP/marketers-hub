@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { Resource } from "@/lib/resources";
 import { LinkTypeIcon } from "./link-type-icons";
 import { ComicPanel, ResourceIcon } from "./shared";
@@ -46,17 +47,26 @@ export function UniformResourceShell({
 export function BannerImage({
   src,
   alt,
+  resource,
   className = "",
 }: {
   src: string;
   alt: string;
+  resource: Resource;
   className?: string;
 }) {
+  const [failed, setFailed] = useState(false);
+
+  if (failed) {
+    return <BannerLinkFallback resource={resource} />;
+  }
+
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={src}
       alt={alt}
+      onError={() => setFailed(true)}
       className={`absolute inset-0 h-full w-full object-cover ${className}`}
     />
   );

@@ -25,26 +25,39 @@ export function parseLinkType(raw: string): LinkType {
   return map[key] ?? "other";
 }
 
-export function getYoutubeEmbedUrl(url: string): string | null {
+export function getYoutubeVideoId(url: string): string | null {
   try {
     const parsed = new URL(url.startsWith("http") ? url : `https://${url}`);
     const host = parsed.hostname.replace(/^www\./, "");
 
     if (host === "youtu.be") {
-      const id = parsed.pathname.slice(1);
-      return id ? `https://www.youtube.com/embed/${id}` : null;
+      const id = parsed.pathname.split("/").filter(Boolean)[0];
+      return id || null;
     }
 
     if (host.includes("youtube.com")) {
       const id = parsed.searchParams.get("v");
-      if (id) return `https://www.youtube.com/embed/${id}`;
+      if (id) return id;
+      const embed = parsed.pathname.match(/\/embed\/([^/]+)/);
+      if (embed) return embed[1];
       const shorts = parsed.pathname.match(/\/shorts\/([^/]+)/);
-      if (shorts) return `https://www.youtube.com/embed/${shorts[1]}`;
+      if (shorts) return shorts[1];
     }
   } catch {
     return null;
   }
   return null;
+}
+
+export function getYoutubeEmbedUrl(url: string): string | null {
+  const id = getYoutubeVideoId(url);
+  return id ? `https://www.youtube.com/embed/${id}` : null;
+}
+
+/** Standard thumbnail for after-movie cards (banner field may be a YouTube URL). */
+export function getYoutubeThumbnailUrl(url: string): string | null {
+  const id = getYoutubeVideoId(url);
+  return id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : null;
 }
 
 export function normalizeUrl(url: string): string {

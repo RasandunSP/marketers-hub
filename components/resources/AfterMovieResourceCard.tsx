@@ -32,7 +32,7 @@ export function AfterMovieResourceCard({
         ) : (
           <>
             {resource.bannerUrl ? (
-              <BannerImage src={resource.bannerUrl} alt="" />
+              <BannerImage src={resource.bannerUrl} alt="" resource={resource} />
             ) : (
               <BannerLinkFallback resource={resource} />
             )}

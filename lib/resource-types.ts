@@ -19,6 +19,8 @@ export function normalizeResourceType(raw: string): ResourceType {
     "photo album": "photoalbum",
     aftermovie: "aftermovie",
     aftermovies: "aftermovie",
+    "after-movie": "aftermovie",
+    "after-movies": "aftermovie",
     animation: "animation",
     animations: "animation",
   };
@@ -56,9 +58,10 @@ export function mapCategory(type: ResourceType, rawType: string): string {
 }
 
 export function requiresBanner(type: ResourceType): boolean {
+  if (type === "aftermovie") return false;
   return getCardSize(type) === "large";
 }
 
 export function requiresIcon(type: ResourceType): boolean {
-  return type !== "color";
+  return type !== "color" && type !== "aftermovie";
 }

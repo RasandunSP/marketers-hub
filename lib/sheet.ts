@@ -1,8 +1,15 @@
 import { parseCsv } from "./csv";
-import { GOOGLE_SHEET_CSV_URL } from "./sheet-config";
+import { fetchSheetCsv } from "./sheet-fetch";
 import type { Resource } from "./resources";
 import { CATEGORIES } from "./resources";
-import { parseHexColor, parseLinkType, normalizeUrl } from "./link-types";
+import { enrichResourcesMedia } from "./enrich-resources";
+import { supportsLinkPreview } from "./link-preview";
+import {
+  getYoutubeEmbedUrl,
+  parseHexColor,
+  parseLinkType,
+  normalizeUrl,
+} from "./link-types";
 import {
   getCardSize,
   mapCategory,
@@ -64,8 +71,23 @@ function validateRow(
     return "icon required";
   }
 
+  if (type === "aftermovie") {
+    const link = row[COL.link]?.trim() ?? "";
+    const banner = row[COL.banner]?.trim() ?? "";
+    const hasYoutube =
+      Boolean(getYoutubeEmbedUrl(link)) || Boolean(getYoutubeEmbedUrl(banner));
+    if (!link) return "after movie requires a YouTube link";
+    if (!hasYoutube && !banner) {
+      return "after movie requires a YouTube link or banner image URL";
+    }
+    return null;
+  }
+
   if (requiresBanner(type) && !row[COL.banner]?.trim()) {
-    return "banner required (16:9 image URL)";
+    const link = row[COL.link]?.trim() ?? "";
+    if (!supportsLinkPreview(link)) {
+      return "banner required (image URL or Google/YouTube link for auto-preview)";
+    }
   }
 
   if (!row[COL.link]?.trim()) {
@@ -73,6 +95,35 @@ function validateRow(
   }
 
   return null;
+}
+
+export type SkippedSheetRow = {
+  rowIndex: number;
+  resourceType: string;
+  title: string;
+  reason: string;
+};
+
+export function getSkippedSheetRows(rows: string[][]): SkippedSheetRow[] {
+  const skipped: SkippedSheetRow[] = [];
+
+  rows.forEach((row, index) => {
+    const rawType = row[COL.resourceType]?.trim() ?? "";
+    if (!rawType || rawType.toLowerCase() === "resource type") return;
+
+    const resourceType = normalizeResourceType(rawType);
+    const reason = validateRow(row, resourceType);
+    if (!reason) return;
+
+    skipped.push({
+      rowIndex: index + 1,
+      resourceType: rawType,
+      title: row[COL.title]?.trim() || "(no title)",
+      reason,
+    });
+  });
+
+  return skipped;
 }
 
 function rowToResource(row: string[], index: number): Resource | null {
@@ -150,20 +201,13 @@ export async function fetchResourcesFromSheet(): Promise<{
   resources: Resource[];
   fetchedAt: string;
 }> {
-  const response = await fetch(GOOGLE_SHEET_CSV_URL, {
-    cache: "no-store",
-    headers: { Accept: "text/csv" },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Sheet fetch failed (${response.status})`);
-  }
-
-  const csv = await response.text();
+  const csv = await fetchSheetCsv();
   const rows = parseCsv(csv);
 
+  const resources = rowsToResources(rows);
+
   return {
-    resources: rowsToResources(rows),
+    resources: await enrichResourcesMedia(resources),
     fetchedAt: new Date().toISOString(),
   };
 }
