@@ -3,7 +3,6 @@ import { fetchSheetCsv } from "./sheet-fetch";
 import type { Resource } from "./resources";
 import { CATEGORIES } from "./resources";
 import { enrichResourcesMedia } from "./enrich-resources";
-import { supportsLinkPreview } from "./link-preview";
 import {
   getYoutubeEmbedUrl,
   parseHexColor,
@@ -14,8 +13,6 @@ import {
   getCardSize,
   mapCategory,
   normalizeResourceType,
-  requiresBanner,
-  requiresIcon,
 } from "./resource-types";
 
 const COL = {
@@ -55,8 +52,8 @@ function validateRow(
     return "not confirmed";
   }
 
-  if (!row[COL.title]?.trim() || !row[COL.description]?.trim()) {
-    return "missing title or description";
+  if (!row[COL.title]?.trim()) {
+    return "missing title";
   }
 
   if (type === "color") {
@@ -67,7 +64,7 @@ function validateRow(
     return null;
   }
 
-  if (requiresIcon(type) && !row[COL.icon]?.trim()) {
+  if (type === "logo" && !row[COL.icon]?.trim()) {
     return "icon required";
   }
 
@@ -81,13 +78,6 @@ function validateRow(
       return "after movie requires a YouTube link or banner image URL";
     }
     return null;
-  }
-
-  if (requiresBanner(type) && !row[COL.banner]?.trim()) {
-    const link = row[COL.link]?.trim() ?? "";
-    if (!supportsLinkPreview(link)) {
-      return "banner required (image URL or link URL that supports auto-preview)";
-    }
   }
 
   if (!row[COL.link]?.trim()) {
@@ -135,7 +125,7 @@ function rowToResource(row: string[], index: number): Resource | null {
   if (validationError) return null;
 
   const title = row[COL.title].trim();
-  const description = row[COL.description].trim();
+  const description = row[COL.description]?.trim() ?? "";
   const linkType = parseLinkType(row[COL.linkType] ?? "Other");
   const icon = row[COL.icon]?.trim();
   const iconBg = row[COL.iconBg]?.trim();

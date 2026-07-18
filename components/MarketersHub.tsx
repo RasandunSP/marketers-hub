@@ -13,7 +13,8 @@ export function MarketersHub() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
-  const { resources, loading, error, refresh } = useResources();
+  const { resources, loading, refreshing, error, lastUpdated, refresh } =
+    useResources();
 
   const categories = useMemo(
     () => getCategoriesFromResources(resources),
@@ -63,6 +64,12 @@ export function MarketersHub() {
       />
       <main className="px-5 py-4 md:px-8 md:py-5">
         <div className="mx-auto w-full max-w-none">
+          {refreshing && resources.length > 0 ? (
+            <p className="mb-3 text-center text-[11px] font-medium text-[#037EF3]">
+              Updating resources…
+            </p>
+          ) : null}
+
           {loading && resources.length === 0 ? (
             <p className="rounded-xl bg-white p-5 text-center text-[13px] text-[#888] shadow-sm">
               Loading resources…
@@ -91,6 +98,16 @@ export function MarketersHub() {
               {resources.length === 0
                 ? "No resources published yet. Set both “Confirm Push to Marketers Hub” and “Double Confirm” to TRUE in the sheet."
                 : "No resources match your search or filter."}
+            </p>
+          ) : null}
+
+          {lastUpdated && resources.length > 0 ? (
+            <p className="mt-4 text-center text-[10px] text-[#aaa]">
+              Last updated{" "}
+              {new Date(lastUpdated).toLocaleTimeString(undefined, {
+                hour: "numeric",
+                minute: "2-digit",
+              })}
             </p>
           ) : null}
         </div>

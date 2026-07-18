@@ -9,9 +9,12 @@ type ResourcesResponse = {
   fetchedAt: string;
 };
 
-async function fetchResourcesFromApi(): Promise<ResourcesResponse> {
+async function fetchResourcesFromApi(
+  signal?: AbortSignal,
+): Promise<ResourcesResponse> {
   const response = await fetch(`/api/resources?_=${Date.now()}`, {
     cache: "no-store",
+    signal,
     headers: {
       "Cache-Control": "no-cache",
       Pragma: "no-cache",
@@ -32,23 +35,35 @@ async function fetchResourcesFromApi(): Promise<ResourcesResponse> {
 export function useResources() {
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const hasLoadedRef = useRef(false);
-  const loadingRef = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
 
-  const load = useCallback(async () => {
-    if (loadingRef.current) return;
-    loadingRef.current = true;
+  const load = useCallback(async (background = false) => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    if (background) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
 
     try {
-      const data = await fetchResourcesFromApi();
+      const data = await fetchResourcesFromApi(controller.signal);
+
+      if (controller.signal.aborted) return;
 
       setResources(data.resources);
       setLastUpdated(data.fetchedAt);
       setError(null);
       hasLoadedRef.current = true;
     } catch (err) {
+      if (controller.signal.aborted) return;
+
       const message =
         err instanceof Error ? err.message : "Failed to load resources";
       setError(message);
@@ -56,21 +71,23 @@ export function useResources() {
         setResources(FALLBACK_RESOURCES);
       }
     } finally {
-      loadingRef.current = false;
+      if (controller.signal.aborted) return;
+
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
   useEffect(() => {
-    void load();
+    void load(false);
 
     const interval = window.setInterval(() => {
-      void load();
+      void load(true);
     }, SHEET_POLL_INTERVAL_MS);
 
     const onVisible = () => {
       if (document.visibilityState === "visible") {
-        void load();
+        void load(true);
       }
     };
 
@@ -78,11 +95,19 @@ export function useResources() {
     window.addEventListener("focus", onVisible);
 
     return () => {
+      abortRef.current?.abort();
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onVisible);
     };
   }, [load]);
 
-  return { resources, loading, error, lastUpdated, refresh: load };
+  return {
+    resources,
+    loading,
+    refreshing,
+    error,
+    lastUpdated,
+    refresh: () => load(hasLoadedRef.current),
+  };
 }
