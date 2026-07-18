@@ -9,7 +9,7 @@ import {
   getYoutubeVideoId,
   normalizeUrl,
 } from "./link-types";
-import { isGoogleHost, isLikelyImageUrl } from "./media-url";
+import { isGoogleHost, isLikelyImageUrl, isLikelyWebUrl } from "./media-url";
 
 const OG_CACHE_TTL_MS = 10 * 60 * 1000;
 const OG_FETCH_TIMEOUT_MS = 4500;
@@ -122,6 +122,11 @@ export async function resolvePreviewUrl(url: string): Promise<string | null> {
     if (ogFromLink) return ogFromLink;
   }
 
+  if (isLikelyWebUrl(trimmed)) {
+    const ogFromUrl = await fetchOpenGraphImage(normalizeUrl(trimmed));
+    if (ogFromUrl) return ogFromUrl;
+  }
+
   return null;
 }
 
@@ -134,6 +139,7 @@ export function supportsLinkPreview(url: string): boolean {
     Boolean(getYoutubeVideoId(trimmed)) ||
     Boolean(parseGoogleDriveFileId(trimmed)) ||
     Boolean(parseGoogleWorkspaceUrl(trimmed)) ||
-    isGoogleHost(trimmed)
+    isGoogleHost(trimmed) ||
+    isLikelyWebUrl(trimmed)
   );
 }

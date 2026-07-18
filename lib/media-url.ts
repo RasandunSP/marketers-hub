@@ -46,3 +46,21 @@ export function isGoogleHost(url: string): boolean {
     return false;
   }
 }
+
+/** HTTP(S) URLs with a real hostname (excludes sheet labels like "Brand Resources"). */
+export function isLikelyWebUrl(url: string): boolean {
+  const trimmed = url.trim();
+  if (!trimmed || /\s/.test(trimmed)) return false;
+
+  try {
+    const parsed = new URL(normalizeUrl(trimmed));
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+
+    const host = parsed.hostname.replace(/^www\./, "");
+    if (!host || !host.includes(".")) return false;
+
+    return /^[a-z0-9.-]+$/i.test(host);
+  } catch {
+    return false;
+  }
+}

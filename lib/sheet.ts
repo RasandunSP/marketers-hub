@@ -86,7 +86,7 @@ function validateRow(
   if (requiresBanner(type) && !row[COL.banner]?.trim()) {
     const link = row[COL.link]?.trim() ?? "";
     if (!supportsLinkPreview(link)) {
-      return "banner required (image URL or Google/YouTube link for auto-preview)";
+      return "banner required (image URL or link URL that supports auto-preview)";
     }
   }
 
