@@ -3,7 +3,11 @@
 import { useState } from "react";
 import type { Resource } from "@/lib/resources";
 import { resourceTypeLabel } from "@/lib/resource-labels";
-import { displayUrl, normalizeUrl } from "@/lib/link-types";
+import { displayUrl } from "@/lib/link-types";
+import {
+  getResourceDownloadUrl,
+  isNavigableResourceUrl,
+} from "@/lib/resolve-resource-url";
 import { resourceToast } from "@/lib/resource-toast";
 import { CopyIcon, DownloadIcon, ExternalLinkIcon } from "../icons";
 import { LinkTypeIcon } from "./link-type-icons";
@@ -98,14 +102,16 @@ function ActionButton({
 
 export function useResourceActions(resource: Resource) {
   const [copied, setCopied] = useState(false);
-  const fullUrl = normalizeUrl(resource.url);
+  const fullUrl = resource.url;
+  const navigable = isNavigableResourceUrl(fullUrl);
   const valueToCopy =
     resource.resourceType === "color"
       ? (resource.hexColor ?? resource.url)
       : fullUrl;
 
   const handleCopy = async () => {
-    if (!resource.copyable) return;
+    if (!resource.copyable || !valueToCopy) return;
+    if (resource.resourceType !== "color" && !navigable) return;
     try {
       await navigator.clipboard.writeText(valueToCopy);
       setCopied(true);
@@ -121,25 +127,40 @@ export function useResourceActions(resource: Resource) {
   };
 
   const handleOpen = () => {
-    if (!resource.redirectable) return;
+    if (!resource.redirectable || !navigable) return;
     window.open(fullUrl, "_blank", "noopener,noreferrer");
     resourceToast.openTab();
   };
 
   const handleDownload = () => {
     if (!resource.downloadable) return;
-    const anchor = document.createElement("a");
-    anchor.href = fullUrl;
-    anchor.target = "_blank";
-    anchor.rel = "noopener noreferrer";
-    anchor.download = "";
-    anchor.click();
-    resourceToast.download();
+
+    const downloadUrl = getResourceDownloadUrl(fullUrl, resource.linkType);
+    if (downloadUrl) {
+      const anchor = document.createElement("a");
+      anchor.href = downloadUrl;
+      anchor.target = "_blank";
+      anchor.rel = "noopener noreferrer";
+      anchor.download = "";
+      anchor.click();
+      resourceToast.download();
+      return;
+    }
+
+    if (navigable) {
+      window.open(fullUrl, "_blank", "noopener,noreferrer");
+      resourceToast.openTab();
+    }
   };
+
+  const displayLink =
+    resource.linkLabel?.trim() ||
+    (navigable ? displayUrl(fullUrl) : "Link unavailable");
 
   return {
     fullUrl,
-    displayUrl: displayUrl(fullUrl),
+    displayUrl: displayLink,
+    navigable,
     copied,
     handleCopy,
     handleOpen,
@@ -153,6 +174,7 @@ export function CardFooter({
   fullUrl,
   displayLink,
   copied,
+  navigable,
   onCopy,
   onOpen,
   onDownload,
@@ -161,34 +183,40 @@ export function CardFooter({
   fullUrl: string;
   displayLink: string;
   copied: boolean;
+  navigable: boolean;
   onCopy: () => void;
   onOpen: () => void;
   onDownload: () => void;
 }) {
   if (resource.resourceType === "color") return null;
 
+  const canCopy = resource.copyable && navigable;
+  const canOpen = resource.redirectable && navigable;
+
   return (
     <div className="flex w-full items-stretch overflow-hidden rounded-lg bg-white ring-1 ring-black/[0.06]">
       <div className="flex min-w-0 flex-1 items-center gap-1.5 px-2 py-1">
         <LinkTypeIcon linkType={resource.linkType} className="h-3.5 w-3.5 shrink-0" />
-        <a
-          href={fullUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={`min-w-0 flex-1 truncate text-[10px] leading-tight ${
-            resource.redirectable
-              ? "text-[#888] hover:text-[#037EF3]"
-              : "pointer-events-none text-[#ccc]"
-          }`}
-        >
-          {displayLink}
-        </a>
+        {canOpen ? (
+          <a
+            href={fullUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="min-w-0 flex-1 truncate text-[10px] leading-tight text-[#888] hover:text-[#037EF3]"
+          >
+            {displayLink}
+          </a>
+        ) : (
+          <span className="min-w-0 flex-1 truncate text-[10px] leading-tight text-[#888]">
+            {displayLink}
+          </span>
+        )}
       </div>
       <div className="flex shrink-0 items-center border-l border-black/[0.06] bg-[#fafafa] px-0.5 py-0.5">
         <ActionButton
           label={copied ? "Copied" : "Copy link"}
           onClick={onCopy}
-          disabled={!resource.copyable}
+          disabled={!canCopy}
           active={copied}
         >
           <CopyIcon />
@@ -196,7 +224,7 @@ export function CardFooter({
         <ActionButton
           label="Open in new tab"
           onClick={onOpen}
-          disabled={!resource.redirectable}
+          disabled={!canOpen}
         >
           <ExternalLinkIcon />
         </ActionButton>
@@ -213,14 +241,22 @@ export function CardFooter({
 }
 
 export function CardFooterActions({ resource }: { resource: Resource }) {
-  const { fullUrl, displayUrl, copied, handleCopy, handleOpen, handleDownload } =
-    useResourceActions(resource);
+  const {
+    fullUrl,
+    displayUrl,
+    navigable,
+    copied,
+    handleCopy,
+    handleOpen,
+    handleDownload,
+  } = useResourceActions(resource);
 
   return (
     <CardFooter
       resource={resource}
       fullUrl={fullUrl}
       displayLink={displayUrl}
+      navigable={navigable}
       copied={copied}
       onCopy={() => void handleCopy()}
       onOpen={handleOpen}

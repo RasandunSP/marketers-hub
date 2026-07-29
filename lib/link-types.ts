@@ -64,13 +64,20 @@ export function getYoutubeThumbnailUrl(url: string): string | null {
   return id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : null;
 }
 
+/** Domain-like strings without a scheme, e.g. aiesec.lk/path or drive.google.com/... */
+export const PARTIAL_URL_PATTERN =
+  /^(?:https?:\/\/)?(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}(?:\/[^\s|]*)?\/?$/i;
+
 export function normalizeUrl(url: string): string {
   const trimmed = url.trim();
   if (!trimmed) return "";
   if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
     return trimmed;
   }
-  return `https://${trimmed}`;
+  if (PARTIAL_URL_PATTERN.test(trimmed)) {
+    return `https://${trimmed.replace(/^\/\//, "")}`;
+  }
+  return trimmed;
 }
 
 export function displayUrl(url: string): string {

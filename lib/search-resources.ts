@@ -7,6 +7,7 @@ export function resourceSearchText(resource: Resource): string {
     resource.title,
     resource.subtitle,
     resource.url,
+    resource.linkLabel ?? "",
     resource.hexColor ?? "",
     resource.category,
     resource.linkType,

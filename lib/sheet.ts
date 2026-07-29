@@ -7,8 +7,8 @@ import {
   getYoutubeEmbedUrl,
   parseHexColor,
   parseLinkType,
-  normalizeUrl,
 } from "./link-types";
+import { resolveResourceUrl } from "./resolve-resource-url";
 import {
   getCardSize,
   mapCategory,
@@ -155,7 +155,8 @@ function rowToResource(row: string[], index: number): Resource | null {
     };
   }
 
-  const url = normalizeUrl(row[COL.link].trim());
+  const rawLink = row[COL.link].trim();
+  const url = resolveResourceUrl(rawLink, linkType);
 
   return {
     id: `${slugify(title) || "resource"}-${index}`,
@@ -164,6 +165,7 @@ function rowToResource(row: string[], index: number): Resource | null {
     title,
     subtitle: description,
     url,
+    linkLabel: rawLink,
     category: mapCategory(resourceType, rawType),
     linkType,
     copyable: isTruthy(row[COL.copyable]),

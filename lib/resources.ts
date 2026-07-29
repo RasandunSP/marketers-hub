@@ -42,8 +42,10 @@ export type Resource = {
   iconUrl?: string;
   iconBackgroundColor?: string;
   bannerUrl?: string;
-  /** For color resources — hex value to display and copy */
+  /** Hex value for color resources */
   hexColor?: string;
+  /** Original link text from the sheet (for display when different from url) */
+  linkLabel?: string;
 };
 
 export const CATEGORIES = [
