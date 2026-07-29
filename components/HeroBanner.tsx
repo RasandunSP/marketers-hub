@@ -17,12 +17,13 @@ export function HeroBanner() {
         </div>
         <div className="relative min-h-[120px] w-full md:w-[66%] md:min-h-0">
           <Image
-            src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80"
-            alt="Coastal landscape"
+            src="/banners/mhub-banner.jpg"
+            alt="Fuelling the creator in you - AIESEC in Sri Lanka Marketers HUB"
             fill
-            className="object-cover"
+            unoptimized
+            className="object-cover object-center"
             priority
-            sizes="100vw"
+            sizes="(max-width: 768px) 100vw, 66vw"
           />
         </div>
       </div>
