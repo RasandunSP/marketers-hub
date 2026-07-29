@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CategoryFilter } from "@/components/CategoryFilter";
+import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { HeroBanner } from "@/components/HeroBanner";
 import { ResourceGrid } from "@/components/ResourceGrid";
@@ -112,6 +113,7 @@ export function MarketersHub() {
           ) : null}
         </div>
       </main>
+      <Footer />
     </div>
   );
 }
