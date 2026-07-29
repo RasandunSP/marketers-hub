@@ -156,7 +156,9 @@ function rowToResource(row: string[], index: number): Resource | null {
   }
 
   const rawLink = row[COL.link].trim();
-  const url = resolveResourceUrl(rawLink, linkType);
+  const url = /^https?:\/\//i.test(rawLink)
+    ? rawLink
+    : resolveResourceUrl(rawLink, linkType);
 
   return {
     id: `${slugify(title) || "resource"}-${index}`,

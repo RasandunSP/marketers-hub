@@ -2,6 +2,11 @@
 
 import { useState } from "react";
 import type { Resource } from "@/lib/resources";
+import {
+  canOpenResource,
+  openResourceInNewTab,
+} from "@/lib/resolve-resource-url";
+import { resourceToast } from "@/lib/resource-toast";
 import { LinkTypeIcon } from "./link-type-icons";
 import { ComicPanel, ResourceIcon } from "./shared";
 
@@ -17,6 +22,15 @@ export function UniformResourceShell({
   banner: React.ReactNode;
   footer: React.ReactNode;
 }) {
+  const openOnClick = canOpenResource(resource);
+
+  const handleBannerClick = () => {
+    if (!openOnClick) return;
+    if (openResourceInNewTab(resource)) {
+      resourceToast.openTab();
+    }
+  };
+
   return (
     <ComicPanel
       resource={resource}
@@ -24,7 +38,24 @@ export function UniformResourceShell({
       showFeaturedBadge={showFeaturedBadge}
       className="comic-panel--uniform"
     >
-      <div className="banner-16x9 relative w-full shrink-0 overflow-hidden bg-[#d6d6d6]">
+      <div
+        role={openOnClick ? "link" : undefined}
+        tabIndex={openOnClick ? 0 : undefined}
+        onClick={openOnClick ? handleBannerClick : undefined}
+        onKeyDown={
+          openOnClick
+            ? (event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  handleBannerClick();
+                }
+              }
+            : undefined
+        }
+        className={`banner-16x9 relative w-full shrink-0 overflow-hidden bg-[#d6d6d6] ${
+          openOnClick ? "cursor-pointer" : ""
+        }`}
+      >
         {banner}
         <div
           className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-t from-black/70 via-black/25 to-black/5"

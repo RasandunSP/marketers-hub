@@ -5,8 +5,10 @@ import type { Resource } from "@/lib/resources";
 import { resourceTypeLabel } from "@/lib/resource-labels";
 import { displayUrl } from "@/lib/link-types";
 import {
+  getResourceCopyValue,
   getResourceDownloadUrl,
   isNavigableResourceUrl,
+  openResourceInNewTab,
 } from "@/lib/resolve-resource-url";
 import { resourceToast } from "@/lib/resource-toast";
 import { CopyIcon, DownloadIcon, ExternalLinkIcon } from "../icons";
@@ -88,7 +90,10 @@ function ActionButton({
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick?.();
+      }}
       disabled={disabled}
       className={`action-btn flex h-8 w-8 items-center justify-center rounded-md disabled:cursor-not-allowed disabled:opacity-30 ${
         active ? "action-btn--active" : ""
@@ -104,10 +109,7 @@ export function useResourceActions(resource: Resource) {
   const [copied, setCopied] = useState(false);
   const fullUrl = resource.url;
   const navigable = isNavigableResourceUrl(fullUrl);
-  const valueToCopy =
-    resource.resourceType === "color"
-      ? (resource.hexColor ?? resource.url)
-      : fullUrl;
+  const valueToCopy = getResourceCopyValue(resource);
 
   const handleCopy = async () => {
     if (!resource.copyable || !valueToCopy) return;
@@ -128,8 +130,9 @@ export function useResourceActions(resource: Resource) {
 
   const handleOpen = () => {
     if (!resource.redirectable || !navigable) return;
-    window.open(fullUrl, "_blank", "noopener,noreferrer");
-    resourceToast.openTab();
+    if (openResourceInNewTab(resource)) {
+      resourceToast.openTab();
+    }
   };
 
   const handleDownload = () => {
@@ -148,14 +151,14 @@ export function useResourceActions(resource: Resource) {
     }
 
     if (navigable) {
-      window.open(fullUrl, "_blank", "noopener,noreferrer");
+      openResourceInNewTab(resource);
       resourceToast.openTab();
     }
   };
 
-  const displayLink =
-    resource.linkLabel?.trim() ||
-    (navigable ? displayUrl(fullUrl) : "Link unavailable");
+  const displayLink = navigable
+    ? displayUrl(fullUrl)
+    : resource.linkLabel?.trim() || "Link unavailable";
 
   return {
     fullUrl,
@@ -202,6 +205,7 @@ export function CardFooter({
             href={fullUrl}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={(event) => event.stopPropagation()}
             className="min-w-0 flex-1 truncate text-[10px] leading-tight text-[#888] hover:text-[#037EF3]"
           >
             {displayLink}

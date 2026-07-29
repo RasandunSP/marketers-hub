@@ -23,6 +23,16 @@ export function normalizeResourceType(raw: string): ResourceType {
     "after-movies": "aftermovie",
     animation: "animation",
     animations: "animation",
+    kit: "other",
+    kits: "other",
+    resourcelink: "other",
+    externalresource: "other",
+    sociallink: "other",
+    documentformat: "other",
+    mastersheet: "other",
+    mastersheets: "other",
+    dashboard: "other",
+    dashboards: "other",
   };
 
   return map[key] ?? "other";
@@ -44,6 +54,22 @@ export function getCardSize(type: ResourceType): CardSize {
 }
 
 export function mapCategory(type: ResourceType, rawType: string): string {
+  const rawKey = rawType.trim().toLowerCase().replace(/\s+/g, " ");
+
+  const rawCategoryMap: Record<string, string> = {
+    kit: "KIT",
+    "resource link": "RESOURCE LINK",
+    "external resource": "EXTERNAL RESOURCE",
+    "social link": "SOCIAL LINK",
+    "document format": "DOCUMENT FORMAT",
+    mastersheet: "MASTERSHEET",
+    dashboard: "DASHBOARD",
+  };
+
+  if (rawCategoryMap[rawKey]) {
+    return rawCategoryMap[rawKey];
+  }
+
   const map: Record<ResourceType, string> = {
     logo: "LOGOS",
     color: "COLORS",

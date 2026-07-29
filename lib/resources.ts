@@ -53,9 +53,16 @@ export const CATEGORIES = [
   "COLORS",
   "GUIDELINES",
   "TEMPLATES",
+  "DOCUMENT FORMAT",
+  "KIT",
+  "RESOURCE LINK",
+  "EXTERNAL RESOURCE",
+  "SOCIAL LINK",
   "PHOTO ALBUMS",
   "AFTER MOVIES",
   "ANIMATIONS",
+  "MASTERSHEET",
+  "DASHBOARD",
 ] as const;
 
 export const FALLBACK_RESOURCES: Resource[] = [

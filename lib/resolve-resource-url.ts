@@ -1,4 +1,4 @@
-import type { LinkType } from "./resources";
+import type { LinkType, Resource } from "./resources";
 import {
   getYoutubeVideoId,
   normalizeUrl,
@@ -13,36 +13,85 @@ import {
 const EMBEDDED_URL_PATTERN =
   /\|\s*((?:https?:\/\/)?(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}(?:\/[^\s|]*)?)\s*$/i;
 
-function isGoogleLinkType(linkType: LinkType): boolean {
-  return linkType === "google-drive";
-}
+const TRAILING_URL_PATTERN =
+  /(?:^|\s|\|)((?:https?:\/\/)?(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}(?:\/[^\s|,)]+)*)\s*$/i;
+
+/** Verified profile / resource URLs for common sheet labels. */
+const KNOWN_LINK_LABELS: Record<string, string> = {
+  "asl facebook": "https://www.facebook.com/AIESECinSriLanka",
+  "asl instagram": "https://www.instagram.com/aiesec_srilanka",
+  "asl linkedin": "https://www.linkedin.com/company/aiesec-sri-lanka",
+  "asl x": "https://x.com/AIESECSriLanka",
+  "asl tiktok": "https://www.tiktok.com/@aiesec.srilanka",
+  "asl medium": "https://aiesec.medium.com",
+  "asl youtube": "https://www.youtube.com/@AIESECinSriLanka",
+  "aiesec hub": "https://aiesechub.squarespace.com",
+};
+
+const GOOGLE_LINK_TYPES = new Set<LinkType>(["google-drive"]);
+const SOCIAL_LINK_TYPES = new Set<LinkType>([
+  "facebook",
+  "instagram",
+  "linkedin",
+  "x",
+  "youtube",
+  "flickr",
+]);
 
 function googleDriveSearchUrl(query: string): string {
   return `https://drive.google.com/drive/search?q=${encodeURIComponent(query.trim())}`;
 }
 
-function extractEmbeddedUrl(raw: string): string | null {
-  const match = raw.match(EMBEDDED_URL_PATTERN);
-  if (!match?.[1]) return null;
+function resolveSocialFallback(linkType: LinkType, label: string): string {
+  const query = encodeURIComponent(
+    label.replace(/\b(ASL|AIESEC)\b/gi, "AIESEC Sri Lanka").trim() || label.trim(),
+  );
 
-  const candidate = match[1].trim();
-  if (/^https?:\/\//i.test(candidate) || PARTIAL_URL_PATTERN.test(candidate)) {
-    return normalizeUrl(candidate);
+  switch (linkType) {
+    case "facebook":
+      return `https://www.facebook.com/search/top?q=${query}`;
+    case "instagram":
+      return `https://www.instagram.com/explore/search/keyword/?q=${query}`;
+    case "linkedin":
+      return `https://www.linkedin.com/search/results/all/?keywords=${query}`;
+    case "x":
+      return `https://x.com/search?q=${query}&src=typed_query`;
+    case "youtube":
+      return `https://www.youtube.com/results?search_query=${query}`;
+    case "flickr":
+      return `https://www.flickr.com/search/?text=${query}`;
+    default:
+      return googleDriveSearchUrl(label);
+  }
+}
+
+function extractEmbeddedUrl(raw: string): string | null {
+  const pipeMatch = raw.match(EMBEDDED_URL_PATTERN);
+  if (pipeMatch?.[1]) {
+    const candidate = pipeMatch[1].trim();
+    if (/^https?:\/\//i.test(candidate) || PARTIAL_URL_PATTERN.test(candidate)) {
+      return normalizeUrl(candidate);
+    }
+  }
+
+  const trailingMatch = raw.match(TRAILING_URL_PATTERN);
+  if (trailingMatch?.[1]) {
+    const candidate = trailingMatch[1].trim();
+    if (/^https?:\/\//i.test(candidate) || PARTIAL_URL_PATTERN.test(candidate)) {
+      return normalizeUrl(candidate);
+    }
   }
 
   return null;
 }
 
-/** Canonical open/view URL for Google Drive and Workspace links. */
-export function normalizeGoogleNavUrl(url: string): string {
+/** Keep sheet URLs intact; only normalize bare Google IDs when needed. */
+function normalizeGoogleOpenUrl(url: string): string {
   const trimmed = url.trim();
   if (!trimmed) return "";
 
-  const folderMatch = trimmed.match(
-    /drive\.google\.com\/drive\/folders\/([a-zA-Z0-9_-]+)/,
-  );
-  if (folderMatch) {
-    return `https://drive.google.com/drive/folders/${folderMatch[1]}`;
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
   }
 
   const driveId = parseGoogleDriveFileId(trimmed);
@@ -58,60 +107,59 @@ export function normalizeGoogleNavUrl(url: string): string {
         : workspace.kind === "presentation"
           ? "presentation"
           : "document";
-    return `https://docs.google.com/${path}/d/${workspace.id}/edit`;
+    return `https://docs.google.com/${path}/d/${workspace.id}/view`;
   }
 
-  try {
-    const parsed = new URL(normalizeUrl(trimmed));
-    const host = parsed.hostname.replace(/^www\./, "");
-
-    if (host.includes("drive.google.com")) {
-      return parsed.toString();
-    }
-
-    if (
-      host === "docs.google.com" ||
-      host === "slides.google.com" ||
-      host === "sheets.google.com"
-    ) {
-      if (parsed.pathname.includes("/preview")) {
-        parsed.pathname = parsed.pathname.replace("/preview", "/edit");
-      }
-      return parsed.toString();
-    }
-  } catch {
-    return normalizeUrl(trimmed);
-  }
-
-  return normalizeUrl(trimmed);
+  return trimmed;
 }
 
-/** Turn a sheet Link cell + Link Type into a URL suitable for copy/open/download. */
+/**
+ * Resolve the sheet Link cell to a navigable URL.
+ * 1. Use exact http(s) URLs from the sheet when present.
+ * 2. Extract embedded domain paths (e.g. "Title | aiesec.lk/path").
+ * 3. Fall back to known social profiles or Drive search for label-only rows.
+ */
 export function resolveResourceUrl(raw: string, linkType: LinkType): string {
   const trimmed = raw.trim();
   if (!trimmed) return "";
 
-  const youtubeId = getYoutubeVideoId(trimmed);
-  if (youtubeId || linkType === "youtube") {
-    if (youtubeId) return `https://www.youtube.com/watch?v=${youtubeId}`;
-  }
+  const known = KNOWN_LINK_LABELS[trimmed.toLowerCase()];
+  if (known) return known;
 
   if (/^https?:\/\//i.test(trimmed)) {
-    return normalizeGoogleNavUrl(trimmed);
+    return trimmed;
+  }
+
+  const youtubeId = getYoutubeVideoId(trimmed);
+  if (youtubeId) {
+    return `https://www.youtube.com/watch?v=${youtubeId}`;
   }
 
   const embedded = extractEmbeddedUrl(trimmed);
-  if (embedded) return normalizeGoogleNavUrl(embedded);
+  if (embedded) return normalizeGoogleOpenUrl(embedded);
 
   if (PARTIAL_URL_PATTERN.test(trimmed) || isLikelyWebUrl(trimmed)) {
-    return normalizeGoogleNavUrl(normalizeUrl(trimmed));
+    return normalizeGoogleOpenUrl(normalizeUrl(trimmed));
   }
 
-  if (isGoogleLinkType(linkType)) {
+  if (GOOGLE_LINK_TYPES.has(linkType)) {
     return googleDriveSearchUrl(trimmed);
   }
 
-  return "";
+  if (SOCIAL_LINK_TYPES.has(linkType)) {
+    return resolveSocialFallback(linkType, trimmed);
+  }
+
+  if (
+    linkType === "other" ||
+    linkType === "aiesec" ||
+    linkType === "canva" ||
+    linkType === "web"
+  ) {
+    return googleDriveSearchUrl(trimmed);
+  }
+
+  return googleDriveSearchUrl(trimmed);
 }
 
 export function isNavigableResourceUrl(url: string): boolean {
@@ -120,7 +168,20 @@ export function isNavigableResourceUrl(url: string): boolean {
   return /^https?:\/\//i.test(trimmed);
 }
 
-/** Direct download URL when the resource link supports it. */
+export function canOpenResource(resource: Resource): boolean {
+  return (
+    resource.resourceType !== "color" &&
+    resource.redirectable &&
+    isNavigableResourceUrl(resource.url)
+  );
+}
+
+export function openResourceInNewTab(resource: Resource): boolean {
+  if (!canOpenResource(resource)) return false;
+  window.open(resource.url, "_blank", "noopener,noreferrer");
+  return true;
+}
+
 export function getResourceDownloadUrl(
   url: string,
   linkType: LinkType,
@@ -158,4 +219,21 @@ export function getResourceDownloadUrl(
   }
 
   return url;
+}
+
+export function getResourceCopyValue(resource: Resource): string {
+  if (resource.resourceType === "color") {
+    return resource.hexColor ?? resource.url;
+  }
+
+  const label = resource.linkLabel?.trim() ?? "";
+  if (/^https?:\/\//i.test(label)) {
+    return label;
+  }
+
+  if (isNavigableResourceUrl(resource.url)) {
+    return resource.url;
+  }
+
+  return label || resource.url;
 }
